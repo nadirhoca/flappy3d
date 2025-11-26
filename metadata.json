@@ -1,0 +1,5 @@
+{
+  "name": "Galactic Flappy 3D",
+  "description": "An enhanced 3D Flappy Bird clone with planet-specific physics, procedural music, and leaderboards.",
+  "requestFramePermissions": []
+}
