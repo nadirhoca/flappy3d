@@ -2,7 +2,7 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { GameState, PlanetType, CelestialBody } from '../types';
-import { PLANETS, PIPE_GAP, PIPE_SPAWN_RATE, BIRD_X, PIPES_PER_LEVEL } from '../constants';
+import { PLANETS, PIPE_GAP_MIN, PIPE_GAP_MAX, PIPE_SPAWN_RATE, BIRD_X, PIPES_PER_LEVEL } from '../constants';
 import { audioManager } from '../services/audio';
 import { 
     createPipeTexture, 
@@ -547,7 +547,8 @@ const GameScene: React.FC<GameSceneProps> = ({ gameState, onScoreUpdate, onPlane
     }
 
     function createPipe(s: THREE.Scene, xPos: number, planet: PlanetType) {
-        const gap = PIPE_GAP;
+        // Variable gap size (between 4.5 and 7.5 units)
+        const gap = Math.random() * (PIPE_GAP_MAX - PIPE_GAP_MIN) + PIPE_GAP_MIN;
         const spread = 6;
         const centerY = (Math.random() * spread) - (spread / 2);
         
