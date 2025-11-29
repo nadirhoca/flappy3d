@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { GameState, PlanetType, CelestialBody } from '../types';
@@ -27,7 +28,7 @@ const GameScene: React.FC<GameSceneProps> = ({ gameState, onScoreUpdate, onPlane
   
   // Objects
   const birdGroupRef = useRef<THREE.Group | null>(null);
-  const wingsRef = useRef<THREE.Group[]>([]); // Left, Right wings (Changed to Group[] to match assignment)
+  const wingsRef = useRef<THREE.Group[]>([]); 
   
   const pipesRef = useRef<THREE.Group[]>([]);
   const cloudsRef = useRef<THREE.Group[]>([]);
@@ -56,6 +57,18 @@ const GameScene: React.FC<GameSceneProps> = ({ gameState, onScoreUpdate, onPlane
   const multiplierRef = useRef<number>(1);
   const frameCountRef = useRef<number>(0);
   const currentPlanetRef = useRef<PlanetType>('MOON');
+
+  // Refs for callbacks to prevent stale closures in animation loop
+  const onScoreUpdateRef = useRef(onScoreUpdate);
+  const onPlanetUpdateRef = useRef(onPlanetUpdate);
+  const onGameOverRef = useRef(onGameOver);
+
+  // Update refs when props change
+  useEffect(() => {
+    onScoreUpdateRef.current = onScoreUpdate;
+    onPlanetUpdateRef.current = onPlanetUpdate;
+    onGameOverRef.current = onGameOver;
+  }, [onScoreUpdate, onPlanetUpdate, onGameOver]);
 
   // Sync prop state
   useEffect(() => {
@@ -119,8 +132,8 @@ const GameScene: React.FC<GameSceneProps> = ({ gameState, onScoreUpdate, onPlane
 
     updateVisuals('MOON');
     setupCelestialBodies('MOON');
-    onScoreUpdate(0);
-    onPlanetUpdate('MOON', 1);
+    onScoreUpdateRef.current(0);
+    onPlanetUpdateRef.current('MOON', 1);
   };
 
   const setupCelestialBodies = (planetId: PlanetType) => {
@@ -441,7 +454,7 @@ const GameScene: React.FC<GameSceneProps> = ({ gameState, onScoreUpdate, onPlane
                 pipe.userData.passed = true;
                 scoreRef.current++;
                 audioManager.playScore();
-                onScoreUpdate(scoreRef.current);
+                onScoreUpdateRef.current(scoreRef.current);
                 
                 // Difficulty Logic
                 const newLevel = Math.floor(scoreRef.current / PIPES_PER_LEVEL) + 1;
@@ -457,10 +470,10 @@ const GameScene: React.FC<GameSceneProps> = ({ gameState, onScoreUpdate, onPlane
                     setupCelestialBodies(nextPlanet);
                     
                     // Trigger Transition on App side
-                    onPlanetUpdate(currentPlanetRef.current, multiplierRef.current); 
+                    onPlanetUpdateRef.current(currentPlanetRef.current, multiplierRef.current); 
                 } else {
                     // Just update multiplier UI
-                    onPlanetUpdate(currentPlanetRef.current, multiplierRef.current);
+                    onPlanetUpdateRef.current(currentPlanetRef.current, multiplierRef.current);
                 }
             }
 
@@ -521,7 +534,7 @@ const GameScene: React.FC<GameSceneProps> = ({ gameState, onScoreUpdate, onPlane
         stateRef.current = 'GAMEOVER';
         audioManager.playCrash();
         audioManager.stopMusic();
-        onGameOver(scoreRef.current);
+        onGameOverRef.current(scoreRef.current);
     };
 
     // --- Helper Creation Functions ---
