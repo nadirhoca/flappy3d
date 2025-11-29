@@ -1,4 +1,3 @@
-
 import * as THREE from 'three';
 
 // Procedural 8-bit Texture Generator
@@ -11,19 +10,6 @@ const createCanvas = (width: number, height: number) => {
     const ctx = canvas.getContext('2d');
     if(ctx) ctx.imageSmoothingEnabled = false;
     return { canvas, ctx };
-};
-
-// Helper to draw pixel arrays - unused for simple patterns but kept for reference
-const drawPixels = (ctx: CanvasRenderingContext2D, pixels: string[], colorMap: Record<string, string>, offsetX: number, offsetY: number, scale: number) => {
-    pixels.forEach((row, y) => {
-        for (let x = 0; x < row.length; x++) {
-            const char = row[x];
-            if (char !== ' ' && colorMap[char]) {
-                ctx.fillStyle = colorMap[char];
-                ctx.fillRect(offsetX + x * scale, offsetY + y * scale, scale, scale);
-            }
-        }
-    });
 };
 
 export const createPipeTexture = (type: 'MOON' | 'EARTH' | 'JUPITER') => {
@@ -88,19 +74,71 @@ export const createPipeTexture = (type: 'MOON' | 'EARTH' | 'JUPITER') => {
 };
 
 export const createGroundTexture = (type: 'MOON' | 'EARTH' | 'JUPITER') => {
-    const { canvas, ctx } = createCanvas(64, 64);
+    const { canvas, ctx } = createCanvas(128, 128); // Increased res for noise
     if (!ctx) return new THREE.CanvasTexture(canvas);
 
-    // Checkerboard pattern for retro feel
-    const c1 = type === 'MOON' ? '#374151' : (type === 'EARTH' ? '#d97706' : '#450a0a');
-    const c2 = type === 'MOON' ? '#4B5563' : (type === 'EARTH' ? '#b45309' : '#7f1d1d');
+    // Base Fill
+    if (type === 'MOON') {
+        ctx.fillStyle = '#4B5563'; // Gray
+        ctx.fillRect(0, 0, 128, 128);
+        
+        // Add Noise (Dust/Craters)
+        for(let i=0; i<400; i++) {
+            ctx.fillStyle = Math.random() > 0.5 ? '#374151' : '#6B7280';
+            const size = Math.random() * 4 + 2;
+            ctx.fillRect(Math.random()*128, Math.random()*128, size, size);
+        }
+        
+        // Big Craters
+        for(let i=0; i<5; i++) {
+             ctx.fillStyle = '#1F2937';
+             const size = Math.random() * 10 + 5;
+             const x = Math.random()*110;
+             const y = Math.random()*110;
+             ctx.fillRect(x, y, size, size);
+             ctx.fillStyle = '#374151'; // Inner
+             ctx.fillRect(x+2, y+2, size-4, size-4);
+        }
 
-    ctx.fillStyle = c1;
-    ctx.fillRect(0, 0, 64, 64);
-    
-    ctx.fillStyle = c2;
-    ctx.fillRect(0, 0, 32, 32);
-    ctx.fillRect(32, 32, 32, 32);
+    } else if (type === 'EARTH') {
+        ctx.fillStyle = '#65a30d'; // Grass Green
+        ctx.fillRect(0, 0, 128, 128);
+
+        // Grass Noise
+        for(let i=0; i<600; i++) {
+            ctx.fillStyle = Math.random() > 0.5 ? '#4d7c0f' : '#84cc16';
+            const w = 2;
+            const h = Math.random() * 4 + 2;
+            ctx.fillRect(Math.random()*128, Math.random()*128, w, h);
+        }
+        
+        // Dirt Patches
+        for(let i=0; i<3; i++) {
+            ctx.fillStyle = '#78350f';
+            const size = Math.random() * 12 + 4;
+            ctx.fillRect(Math.random()*128, Math.random()*128, size, size/2);
+        }
+
+    } else { // JUPITER
+        ctx.fillStyle = '#7f1d1d'; // Dark Red
+        ctx.fillRect(0, 0, 128, 128);
+
+        // Rocky/Banded Noise
+        for(let i=0; i<128; i+=4) {
+             // Bands
+             if (Math.random() > 0.3) {
+                 ctx.fillStyle = Math.random() > 0.5 ? '#991b1b' : '#450a0a';
+                 ctx.fillRect(0, i, 128, 4);
+             }
+        }
+        
+        // Rocks
+        for(let i=0; i<200; i++) {
+            ctx.fillStyle = '#450a0a';
+            const size = Math.random() * 4 + 2;
+            ctx.fillRect(Math.random()*128, Math.random()*128, size, size);
+        }
+    }
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.magFilter = THREE.NearestFilter;

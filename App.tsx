@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import GameScene from './components/GameScene';
 import { GameState, PlanetType, LeaderboardEntry } from './types';
@@ -18,6 +17,7 @@ const App: React.FC = () => {
   const [playerName, setPlayerName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [showTransition, setShowTransition] = useState(false);
 
   // Load Leaderboard
   const fetchLeaderboard = useCallback(async () => {
@@ -34,6 +34,21 @@ const App: React.FC = () => {
     // Start procedural music
     audioManager.resume();
     audioManager.startMusic();
+  };
+
+  const handlePlanetUpdate = (newPlanet: PlanetType, newMult: number) => {
+    setMultiplier(newMult);
+    // If planet actually changed, trigger transition
+    if (newPlanet !== planet) {
+        setPlanet(newPlanet);
+        setGameState('LEVEL_TRANSITION');
+        setShowTransition(true);
+    }
+  };
+
+  const handleResumeLevel = () => {
+      setGameState('PLAYING');
+      setShowTransition(false);
   };
 
   const handleGameOver = (finalScore: number) => {
@@ -78,7 +93,7 @@ const App: React.FC = () => {
       <GameScene 
         gameState={gameState} 
         onScoreUpdate={setScore} 
-        onPlanetUpdate={(p, m) => { setPlanet(p); setMultiplier(m); }}
+        onPlanetUpdate={handlePlanetUpdate}
         onGameOver={handleGameOver}
       />
 
@@ -86,10 +101,12 @@ const App: React.FC = () => {
       <div className="absolute inset-0 z-10 pointer-events-none flex flex-col items-center justify-center">
         
         {/* HUD */}
-        <div className={`absolute top-5 left-5 text-white text-xs bg-black/40 backdrop-blur-sm p-2 rounded-lg border border-white/20 flex items-center gap-2 shadow-lg transition-all duration-500`}>
-           <span className="text-xl animate-bounce">{planetConfig.icon}</span>
-           <span style={{ color: planetConfig.textColor }} className="drop-shadow-md">GRAVITY: {multiplier}x</span>
-        </div>
+        {!showTransition && gameState !== 'START' && gameState !== 'GAMEOVER' && (
+            <div className={`absolute top-5 left-5 text-white text-xs bg-black/40 backdrop-blur-sm p-2 rounded-lg border border-white/20 flex items-center gap-2 shadow-lg transition-all duration-500`}>
+               <span className="text-xl animate-bounce">{planetConfig.icon}</span>
+               <span style={{ color: planetConfig.textColor }} className="drop-shadow-md">GRAVITY: {multiplier}x</span>
+            </div>
+        )}
 
         <button 
            onClick={toggleMute}
@@ -98,7 +115,7 @@ const App: React.FC = () => {
            {isMuted ? '🔇' : '🔊'}
         </button>
 
-        <div className="absolute top-[10%] text-6xl text-white drop-shadow-[4px_4px_0_#000]">
+        <div className={`absolute top-[10%] text-6xl text-white drop-shadow-[4px_4px_0_#000] ${showTransition ? 'hidden' : 'block'}`}>
             {score}
         </div>
 
@@ -116,6 +133,29 @@ const App: React.FC = () => {
                   className="animate-pulse bg-green-600 hover:bg-green-500 text-white py-3 px-6 rounded border-b-4 border-green-800 active:border-b-0 active:translate-y-1 transition-all text-xs"
                 >
                     INITIATE LAUNCH
+                </button>
+            </div>
+        )}
+
+        {/* Transition Splash Screen */}
+        {gameState === 'LEVEL_TRANSITION' && (
+            <div className={`bg-black/80 backdrop-blur-xl p-8 rounded-2xl border-4 ${getBorderColor()} text-center pointer-events-auto max-w-md w-full mx-4 shadow-[0_0_50px_rgba(0,0,0,0.5)] transition-all animate-in fade-in zoom-in duration-300`}>
+                <div className="text-4xl mb-2 animate-bounce">{planetConfig.icon}</div>
+                <h2 className="text-white text-xs tracking-[0.2em] mb-4 text-gray-400">ARRIVING AT SECTOR</h2>
+                <h1 style={{ color: planetConfig.textColor }} className="text-3xl mb-8 drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]">
+                    {planetConfig.name}
+                </h1>
+                
+                <p className="text-gray-300 text-[10px] mb-8 leading-5">
+                    GRAVITY INCREASE DETECTED.<br/>
+                    ADJUST THRUSTERS.
+                </p>
+
+                <button 
+                  onClick={handleResumeLevel}
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white py-4 px-6 rounded border border-white/20 active:scale-95 transition-all text-xs tracking-widest"
+                >
+                    ENGAGE HYPERDRIVE
                 </button>
             </div>
         )}
@@ -153,12 +193,15 @@ const App: React.FC = () => {
                     ) : (
                         <ul className="text-left space-y-2 h-32 overflow-y-auto pr-2 custom-scrollbar">
                             {leaderboard.map((entry, idx) => (
-                                <li key={idx} className="flex justify-between text-[10px] text-gray-300 border-b border-gray-800 pb-1 last:border-0">
-                                    <div className="flex gap-2 items-center">
-                                        <span className={`w-5 ${idx < 3 ? 'text-yellow-400' : 'text-gray-600'}`}>#{idx+1}</span>
-                                        <span className="text-white truncate max-w-[100px]">{entry.name}</span>
+                                <li key={idx} className="flex justify-between items-center text-[10px] text-gray-300 border-b border-gray-800 pb-1 last:border-0">
+                                    <div className="flex gap-2 items-center flex-1 min-w-0">
+                                        <span className={`w-5 flex-shrink-0 ${idx < 3 ? 'text-yellow-400' : 'text-gray-600'}`}>#{idx+1}</span>
+                                        <div className="flex flex-col truncate">
+                                            <span className="text-white truncate">{entry.name}</span>
+                                            <span className="text-[8px] text-gray-500">{entry.readableTime}</span>
+                                        </div>
                                     </div>
-                                    <span className="text-yellow-500">{entry.score}</span>
+                                    <span className="text-yellow-500 ml-2 flex-shrink-0">{entry.score}</span>
                                 </li>
                             ))}
                         </ul>

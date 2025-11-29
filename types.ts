@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-export type GameState = 'START' | 'PLAYING' | 'GAMEOVER';
+export type GameState = 'START' | 'PLAYING' | 'GAMEOVER' | 'LEVEL_TRANSITION';
 
 export type PlanetType = 'MOON' | 'EARTH' | 'JUPITER';
 
@@ -36,5 +36,5 @@ export interface CelestialBody {
   speedX: number;
   speedY: number;
   rotationSpeed: number;
-  type: 'EARTH' | 'MOON' | 'COMET' | 'SUN';
+  type: 'EARTH' | 'MOON' | 'COMET' | 'SUN' | 'BIRD';
 }

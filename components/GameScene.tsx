@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { GameState, PlanetType, CelestialBody } from '../types';
@@ -28,7 +27,7 @@ const GameScene: React.FC<GameSceneProps> = ({ gameState, onScoreUpdate, onPlane
   
   // Objects
   const birdGroupRef = useRef<THREE.Group | null>(null);
-  const wingsRef = useRef<THREE.Mesh[]>([]); // Left, Right wings
+  const wingsRef = useRef<THREE.Group[]>([]); // Left, Right wings (Changed to Group[] to match assignment)
   
   const pipesRef = useRef<THREE.Group[]>([]);
   const cloudsRef = useRef<THREE.Group[]>([]);
@@ -203,6 +202,33 @@ const GameScene: React.FC<GameSceneProps> = ({ gameState, onScoreUpdate, onPlane
       });
   };
 
+  const spawnBackgroundBird = () => {
+      if (!sceneRef.current || Math.random() > 0.005) return;
+
+      const group = new THREE.Group();
+      // Simple V shape
+      const mat = new THREE.MeshBasicMaterial({ color: 0x222222 });
+      const w1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.05, 0.05), mat);
+      w1.rotation.z = 0.5;
+      w1.position.x = -0.1;
+      const w2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.05, 0.05), mat);
+      w2.rotation.z = -0.5;
+      w2.position.x = 0.1;
+      group.add(w1, w2);
+
+      group.position.set(20, (Math.random() * 10), -5 - Math.random() * 5);
+      group.userData = { isCelestial: true };
+      sceneRef.current.add(group);
+
+      celestialBodiesRef.current.push({
+          mesh: group,
+          speedX: -0.1 - Math.random() * 0.1,
+          speedY: 0,
+          rotationSpeed: 0,
+          type: 'BIRD'
+      });
+  };
+
   const updateVisuals = (planetId: PlanetType) => {
     const config = PLANETS[planetId];
     if (!config || !sceneRef.current || !texturesRef.current) return;
@@ -340,31 +366,42 @@ const GameScene: React.FC<GameSceneProps> = ({ gameState, onScoreUpdate, onPlane
       }
 
       // Background Celestial Bodies
-      if (stateRef.current === 'PLAYING' || stateRef.current === 'START') {
-          // Spawn Comets logic
+      if (stateRef.current === 'PLAYING' || stateRef.current === 'START' || stateRef.current === 'LEVEL_TRANSITION') {
+          // Spawn Comets/Birds logic
           if (currentPlanetRef.current === 'MOON' || currentPlanetRef.current === 'JUPITER') {
               spawnComet();
+          }
+          if (currentPlanetRef.current === 'EARTH') {
+              spawnBackgroundBird();
           }
 
           // Move Bodies
           for (let i = celestialBodiesRef.current.length - 1; i >= 0; i--) {
               const body = celestialBodiesRef.current[i];
-              body.mesh.position.x += body.speedX;
-              body.mesh.position.y += body.speedY;
+              
+              // Move faster in transition (hyperdrive)
+              const speedMult = stateRef.current === 'LEVEL_TRANSITION' ? 5 : 1;
+              
+              body.mesh.position.x += body.speedX * speedMult;
+              body.mesh.position.y += body.speedY * speedMult;
               body.mesh.rotation.y += body.rotationSpeed;
 
-              // Cleanup Comets that fly off screen
-              if (body.type === 'COMET' && body.mesh.position.x < -30) {
+              // Cleanup
+              if ((body.type === 'COMET' || body.type === 'BIRD') && body.mesh.position.x < -30) {
                   sceneRef.current?.remove(body.mesh);
                   celestialBodiesRef.current.splice(i, 1);
               }
               // Loop Planets/Moons
-              else if (body.type !== 'COMET' && (body.mesh.position.x < -40 || body.mesh.position.x > 40)) {
-                  // Keep them in loop if desired, or let them pass. 
-                  // For now, let Earth pass once or loop very widely.
+              else if (body.type !== 'COMET' && body.type !== 'BIRD' && (body.mesh.position.x < -40 || body.mesh.position.x > 40)) {
                   if (body.mesh.position.x < -40) body.mesh.position.x = 40;
                   if (body.mesh.position.x > 40) body.mesh.position.x = -40;
               }
+          }
+          
+          // Move Stars (Warp effect)
+          if (starsRef.current) {
+              const starSpeed = stateRef.current === 'LEVEL_TRANSITION' ? 0.5 : 0.02;
+              starsRef.current.rotation.x += starSpeed * 0.1;
           }
       }
 
@@ -411,15 +448,20 @@ const GameScene: React.FC<GameSceneProps> = ({ gameState, onScoreUpdate, onPlane
                 multiplierRef.current = newLevel;
                 
                 let nextPlanet: PlanetType = 'MOON';
-                if (newLevel >= 5) nextPlanet = 'EARTH'; 
-                if (newLevel >= 9) nextPlanet = 'JUPITER'; 
+                if (scoreRef.current >= 20) nextPlanet = 'EARTH'; 
+                if (scoreRef.current >= 40) nextPlanet = 'JUPITER'; 
 
                 if (nextPlanet !== currentPlanetRef.current) {
                     currentPlanetRef.current = nextPlanet;
                     updateVisuals(nextPlanet);
-                    setupCelestialBodies(nextPlanet); // Reset background for new planet
+                    setupCelestialBodies(nextPlanet);
+                    
+                    // Trigger Transition on App side
+                    onPlanetUpdate(currentPlanetRef.current, multiplierRef.current); 
+                } else {
+                    // Just update multiplier UI
+                    onPlanetUpdate(currentPlanetRef.current, multiplierRef.current);
                 }
-                onPlanetUpdate(currentPlanetRef.current, multiplierRef.current);
             }
 
             if (pipe.position.x < -15) {
@@ -429,7 +471,6 @@ const GameScene: React.FC<GameSceneProps> = ({ gameState, onScoreUpdate, onPlane
 
             // Collision
             if (birdGroupRef.current) {
-                // Rough collision box for the whole group
                 const birdBox = new THREE.Box3().setFromObject(birdGroupRef.current);
                 birdBox.expandByScalar(-0.3); // Tolerance
                 
@@ -467,7 +508,7 @@ const GameScene: React.FC<GameSceneProps> = ({ gameState, onScoreUpdate, onPlane
         }
 
       } else {
-          // Idle
+          // Idle OR Transition
           if (birdGroupRef.current) {
               birdGroupRef.current.position.y = Math.sin(Date.now() * 0.004) * 0.5;
               birdGroupRef.current.rotation.z = 0;
